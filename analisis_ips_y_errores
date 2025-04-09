@@ -1,0 +1,57 @@
+import os
+import re
+from collections import defaultdict
+
+log_dir = "C:/Users/marlo/Downloads/SotM34/http"
+
+log_pattern = re.compile(
+    r'^(\d{1,3}(?:\.\d{1,3}){3}) - - \[(\d{2}/\w{3}/\d{4}):(\d{2}:\d{2}:\d{2}) [+-]\d{4}\] "(GET|POST) (.*?) HTTP/[\d.]+" (\d{3}) (\d+|-)'
+)
+
+total_lineas = 0
+entradas_validas = 0
+codigos_respuesta = defaultdict(int)
+ips = defaultdict(int)
+errores_por_ip = defaultdict(int)
+intentos_login_fallido = 0
+errores_404 = 0
+
+def obtener_valor(tupla):
+    return tupla[1]
+
+for filename in os.listdir(log_dir):
+    if filename.startswith("access_log"):
+        print(f"Procesando archivo: {filename}")
+        with open(os.path.join(log_dir, filename), encoding="utf-8", errors="ignore") as f:
+            for linea in f:
+                total_lineas += 1
+                match = log_pattern.match(linea)
+                if match:
+                    entradas_validas += 1
+                    ip, fecha, hora, metodo, recurso, codigo, _ = match.groups()
+
+                    print(f"La IP es {ip}, la fecha es {fecha}, la hora es {hora}, el método es {metodo}, y el código de error es {codigo}")
+
+                    codigos_respuesta[codigo] += 1
+                    ips[ip] += 1
+                    if codigo.startswith("4") or codigo.startswith("5"):
+                        errores_por_ip[ip] += 1
+                    if "login" in recurso.lower() and codigo == "401":
+                        intentos_login_fallido += 1
+                    if codigo == "404":
+                        errores_404 += 1
+
+print("\nResumen de actividad sospechosa:")
+print(f"Hay {errores_404} accesos con error 404, que podrían ser búsquedas de rutas que no existen.\n")
+
+print("Códigos de respuesta más comunes:")
+for codigo, count in sorted(codigos_respuesta.items()):
+    print(f"  {codigo}: {count} veces")
+
+print("\nLas IPs que más aparecen en los registros:")
+for ip, count in sorted(ips.items(), key=obtener_valor, reverse=True)[:5]:
+    print(f"  {ip}: {count} veces")
+
+print("\nLas IPs con más errores registrados:")
+for ip, count in sorted(errores_por_ip.items(), key=obtener_valor, reverse=True)[:5]:
+    print(f"  {ip}: {count} errores")
