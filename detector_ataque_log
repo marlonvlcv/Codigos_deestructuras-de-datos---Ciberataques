@@ -1,0 +1,33 @@
+import os
+import re
+import requests
+
+log_dir = "C:/Users/marlo/Downloads/SotM34/http"
+
+log_pattern = re.compile(r"^(\d{1,3}(?:\.\d{1,3}){3}).*?\"[A-Z]+\s(\/\S*)\sHTTP.*?\"\s(\d{3})")
+
+def obtener_datos_geo(ip):
+    try:
+        res = requests.get(f"http://ip-api.com/json/{ip}").json()
+        return res.get("country"), res.get("city")
+    except:
+        return None, None
+
+procesadas = set()
+for filename in os.listdir(log_dir):
+    if filename.startswith("access_log"):
+        print(f"\nAnalizando {filename}...")
+        with open(os.path.join(log_dir, filename), encoding="utf-8", errors="ignore") as f:
+            for linea in f:
+                match = log_pattern.match(linea)
+                if match:
+                    ip, path, code = match.groups()
+                    if ip in procesadas:
+                        continue
+                    procesadas.add(ip)
+                    country, city = obtener_datos_geo(ip)
+                    print(f"La IP es: {ip}, el pais es: {country}, la ciduad es: {city}, el codigo es  código: {code}, y la ruta: {path}")
+
+                    if country == "Russia" and code == "200":
+                        print(f"Posible ataque desde Rusia: IP {ip}, Código {code}")
+
